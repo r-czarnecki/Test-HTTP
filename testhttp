@@ -1,0 +1,46 @@
+#!/usr/bin/python
+
+import sys
+import re
+import subprocess
+import os
+
+if len(sys.argv) != 3:
+    print("ERROR: wrong number of arguments")
+    exit(0)
+
+http = re.match("https{0,1}:\/\/", sys.argv[2])
+if http is None:
+    print("ERROR: no HTTP/HTTPS specified")
+    exit(0)
+else:
+    http = http.group(0)
+
+address = re.search("https{0,1}:\/\/([^:\/]+)", sys.argv[2])
+port = re.search("https{0,1}:\/\/[^:\/]+:([\d]+)", sys.argv[2])
+
+if address is None:
+    print("ERROR: wrong address")
+    exit(0)
+else:
+    address = address.group(1)
+
+
+if port is None:
+    if http == "http://":
+        port = "80"
+    else:
+        port = "443"
+else:
+    port = port.group(1)
+
+if http == "http://":
+    subprocess.call(["./testhttp_raw", address + ":" + port, sys.argv[1], sys.argv[2]])
+else:
+    f = open("config", "w")
+    f.write("pid = " + os.getcwd() + "/pid\n[service]\nclient = yes\naccept = 127.0.0.1:3333\nconnect = " + address + ":" + port)
+    f.close()
+    subprocess.call(["stunnel", "config"])
+    subprocess.call(["./testhttp_raw", "127.0.0.1:3333", sys.argv[1], sys.argv[2]])
+    subprocess.call("kill $(cat " + os.getcwd() + "/pid)", shell=True)
+    subprocess.call("rm " + os.getcwd() + "/config", shell=True)
